@@ -1,0 +1,308 @@
+Microsoft (R) Macro Assembler Version 10.00.30319.01	    03/17/17 05:17:09
+convert.asm						     Page 1 - 1
+
+
+				.586
+				.model flat, stdcall
+				option casemap :none
+				.STACK 4096
+					extrn ExitProcess@4: proc
+					GetStdHandle proto :dword
+					ReadConsoleA  proto :dword, :dword, :dword, :dword, :dword
+					WriteConsoleA proto :dword, :dword, :dword, :dword, :dword
+					MessageBoxA proto:dword, :dword, :dword, :dword
+ =-0000000A				STD_INPUT_HANDLE equ -10
+ =-0000000B				STD_OUTPUT_HANDLE equ -11
+
+ 00000000			.DATA
+ = 00000050			    bufferSize = 80
+ 00000000 00000000		    inputHandle DWORD ? 
+ 00000004  00000050 [		    buffer db bufferSize dup(?) 
+	    00
+	   ]
+ 00000054 00000000		    bytes_read  DWORD  ? 
+ 00000058 45 6E 74 65 72	    celsius db "Enter 'C' to convert temperature to Centigrade or enter 'F' to convert to Fahrenheit: ",0
+	   20 27 43 27 20
+	   74 6F 20 63 6F
+	   6E 76 65 72 74
+	   20 74 65 6D 70
+	   65 72 61 74 75
+	   72 65 20 74 6F
+	   20 43 65 6E 74
+	   69 67 72 61 64
+	   65 20 6F 72 20
+	   65 6E 74 65 72
+	   20 27 46 27 20
+	   74 6F 20 63 6F
+	   6E 76 65 72 74
+	   20 74 6F 20 46
+	   61 68 72 65 6E
+	   68 65 69 74 3A
+	   20 00
+ 000000AF 54 68 65 20 74	    prompts db "The temperature is: "
+	   65 6D 70 65 72
+	   61 74 75 72 65
+	   20 69 73 3A 20
+ 000000C3 54 68 65 20 74	    sum_string db "The temperature converted to Fahrenheit is: ",0
+	   65 6D 70 65 72
+	   61 74 75 72 65
+	   20 63 6F 6E 76
+	   65 72 74 65 64
+	   20 74 6F 20 46
+	   61 68 72 65 6E
+	   68 65 69 74 20
+	   69 73 3A 20 00
+ 000000F0 54 68 65 20 74	    inDec db "The temperature converted to Centigrade is: ",0
+	   65 6D 70 65 72
+	   61 74 75 72 65
+	   20 63 6F 6E 76
+	   65 72 74 65 64
+	   20 74 6F 20 43
+	   65 6E 74 69 67
+	   72 61 64 65 20
+	   69 73 3A 20 00
+ 0000011D 00000000		    outputHandle DWORD ? 
+ 00000121 00000000		    bytes_written dd ?
+ 00000125 0000			    actNumber dw 0
+ 00000127 0000			    number dw 0
+ 00000129  00000004 [		    asciiBuf db 4 dup (" "),13,10,0
+	    20
+	   ] 0D 0A 00
+
+ 00000000			.CODE
+ 00000000				main:
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 00000007  A3 0000011D R			mov outputHandle, eax 
+ 0000000C  B8 00000057				mov eax,LENGTHOF celsius
+						invoke WriteConsoleA, outputHandle, addr celsius, eax, addr bytes_written,3
+						invoke GetStdHandle, STD_INPUT_HANDLE 
+ 00000030  A3 00000000 R			mov inputHandle, eax 
+						invoke ReadConsoleA, inputHandle, addr buffer, bufferSize, addr bytes_read,5 
+ 0000004E  83 2D 00000054 R			sub bytes_read, 2
+	   02
+ 00000055  BB 00000000				mov ebx,0 
+ 0000005A  8A 83 00000004 R			mov al, byte ptr buffer+[ebx]
+ 00000060  66| 01 05				add[number],ax
+	   00000127 R
+
+ 00000067			    cont:
+ 00000067  66| 83 3D				cmp number, 43H
+	   00000127 R 43
+ 0000006F  74 13				je Centigrade
+ 00000071  66| 83 3D				cmp number, 46H
+	   00000127 R 46
+ 00000079  0F 84 0000013B			je Fahrenheit
+ 0000007F  E8 00000000 E			call ExitProcess@4
+
+ 00000084				Centigrade:
+ 00000084  E8 00000005				call to_Centigrade
+ 00000089  E8 00000000 E			call ExitProcess@4
+
+ 0000008E					to_Centigrade PROC
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 00000095  A3 0000011D R			mov outputHandle, eax 
+ 0000009A  B8 00000014				mov eax,LENGTHOF prompts
+						invoke WriteConsoleA, outputHandle, addr prompts, eax, addr bytes_written,3
+						invoke GetStdHandle, STD_INPUT_HANDLE 
+ 000000BE  A3 00000000 R			mov inputHandle, eax 
+						invoke ReadConsoleA, inputHandle, addr buffer, bufferSize, addr bytes_read,5 
+ 000000DC  83 2D 00000054 R			sub bytes_read, 2 ;-2 to remove cr,lf
+	   02
+ 000000E3  BB 00000000				mov ebx,0 
+ 000000E8  8A 83 00000004 R			mov al, byte ptr buffer+[ebx]
+ 000000EE  2C 30				sub al,30h
+ 000000F0  66| 01 05				add[actNumber],ax
+	   00000125 R
+
+ 000000F7					getNext:
+ 000000F7  66| 43				inc bx
+ 000000F9  3B 1D 00000054 R			cmp ebx,bytes_read
+ 000000FF  74 22				jz calculateC
+ 00000101  66| B8 000A				mov ax,10
+ 00000105  66| F7 25				mul[actNumber]
+	   00000125 R
+ 0000010C  66| A3				mov actNumber,ax
+	   00000125 R
+ 00000112  8A 83 00000004 R			mov al, byte ptr buffer+[ebx]
+ 00000118  2C 30				sub al,30h
+ 0000011A  66| 01 05				add actNumber,ax
+	   00000125 R
+ 00000121  EB D4				jmp getNext
+
+ 00000123			    calculateC:	
+ 00000123  66| B9 0000				mov cx, 0
+ 00000127  66| 8B 0D				mov cx, actNumber
+	   00000125 R
+ 0000012E  8B C1				mov eax, ecx
+ 00000130  83 E8 20				sub eax, 32
+ 00000133  66| B9 0005				mov cx, 5   
+ 00000137  66| F7 E1				mul cx
+ 0000013A  66| B9 0009				mov cx, 9
+ 0000013E  66| F7 F1				div cx
+ 00000141  8B D8				mov ebx, eax
+ 00000143  B1 0A				mov cl,10
+ 00000145  BB 00000003				mov ebx,3
+
+ 0000014A			    print:
+ 0000014A  F6 F9				idiv cl
+ 0000014C  80 C4 30				add ah,30h
+ 0000014F  88 A3 00000129 R			mov byte ptr asciiBuf+[ebx],ah
+ 00000155  4B					dec ebx
+ 00000156  B4 00				mov ah,0
+ 00000158  3C 00				cmp al,0
+ 0000015A  77 EE				ja print
+ 0000015C  B8 00000004				mov eax,4
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 00000168  A3 0000011D R			mov outputHandle, eax 
+ 0000016D  B8 0000002D				mov eax,LENGTHOF inDec;length of sum_string
+						invoke WriteConsoleA, outputHandle, addr inDec, eax, addr bytes_written,0
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 00000191  A3 0000011D R			mov outputHandle, eax 
+ 00000196  B8 00000007				mov eax,LENGTHOF asciiBuf
+						invoke WriteConsoleA, outputHandle, addr asciiBuf, eax, addr bytes_written,0
+
+ 000001B3  6A 00				push 0
+ 000001B5  E8 00000000 E			call ExitProcess@4
+ 000001BA					to_Centigrade ENDP
+
+ 000001BA			    Fahrenheit:
+ 000001BA  E8 00000005				Call to_Fahrenheit
+ 000001BF  E8 00000000 E			call ExitProcess@4
+ 000001C4					to_Fahrenheit Proc
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 000001CB  A3 0000011D R			mov outputHandle, eax 
+ 000001D0  B8 00000014				mov eax,LENGTHOF prompts
+						invoke WriteConsoleA, outputHandle, addr prompts, eax, addr bytes_written,3
+						invoke GetStdHandle, STD_INPUT_HANDLE 
+ 000001F4  A3 00000000 R			mov inputHandle, eax 
+						invoke ReadConsoleA, inputHandle, addr buffer, bufferSize, addr bytes_read,5 
+ 00000212  83 2D 00000054 R			sub bytes_read, 2
+	   02
+ 00000219  BB 00000000				mov ebx,0 
+ 0000021E  8A 83 00000004 R			mov al, byte ptr buffer+[ebx]
+ 00000224  2C 30				sub al,30h
+ 00000226  66| 01 05				add[actNumber],ax
+	   00000125 R
+
+ 0000022D			    getNext:
+ 0000022D  66| 43				inc bx
+ 0000022F  3B 1D 00000054 R			cmp ebx,bytes_read
+ 00000235  74 22				jz calculateF
+ 00000237  66| B8 000A				mov ax,10
+ 0000023B  66| F7 2D				Imul[actNumber]
+	   00000125 R
+ 00000242  66| A3				mov actNumber,ax
+	   00000125 R
+ 00000248  8A 83 00000004 R			mov al, byte ptr buffer+[ebx]
+ 0000024E  2C 30				sub al,30h
+ 00000250  66| 01 05				add actNumber,ax
+	   00000125 R
+ 00000257  EB D4				jmp getNext
+
+ 00000259				calculateF:
+ 00000259  66| 8B 0D				mov cx, actNumber
+	   00000125 R
+ 00000260  8B C1				mov eax, ecx
+ 00000262  66| 6B C9 09				IMUL cx, 9
+ 00000266  66| 8B C1				mov ax, cx
+ 00000269  66| BB 0005				mov bx, 5
+ 0000026D  66| F7 FB				idiv bx
+ 00000270  83 C0 20				add eax, 32
+ 00000273  8B D8				mov ebx, eax
+ 00000275  B1 0A				mov cl, 10
+ 00000277  BB 00000003				mov ebx, 3
+
+ 0000027C			    print:
+ 0000027C  F6 F9				idiv cl
+ 0000027E  80 C4 30				add ah, 30h
+ 00000281  88 A3 00000129 R			mov byte ptr asciiBuf+[ebx], ah
+ 00000287  4B					dec ebx
+ 00000288  B4 00				mov ah, 0
+ 0000028A  3C 00				cmp al, 0
+ 0000028C  77 EE				ja print
+ 0000028E  B8 00000004				mov eax, 4
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 0000029A  A3 0000011D R			mov outputHandle, eax 
+ 0000029F  B8 0000002D				mov eax,LENGTHOF sum_string;length of sum_string
+						invoke WriteConsoleA, outputHandle, addr sum_string, eax, addr bytes_written,0
+						invoke GetStdHandle, STD_OUTPUT_HANDLE
+ 000002C3  A3 0000011D R			mov outputHandle, eax 
+ 000002C8  B8 00000007				mov eax,LENGTHOF asciiBuf
+						invoke WriteConsoleA, outputHandle, addr asciiBuf, eax, addr bytes_written,0
+
+ 000002E5  6A 00				push 0
+ 000002E7  E8 00000000 E			call ExitProcess@4
+ 000002EC					to_Fahrenheit ENDP
+
+					end main
+				end
+Microsoft (R) Macro Assembler Version 10.00.30319.01	    03/17/17 05:17:09
+convert.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000130 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000002EC Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+GetStdHandle . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MessageBoxA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleA . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleA  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+to_Centigrade  . . . . . . . . .	P Near	 0000008E _TEXT	Length= 0000012C Public STDCALL
+  getNext  . . . . . . . . . . .	L Near	 000000F7 _TEXT	
+  calculateC . . . . . . . . . .	L Near	 00000123 _TEXT	
+  print  . . . . . . . . . . . .	L Near	 0000014A _TEXT	
+to_Fahrenheit  . . . . . . . . .	P Near	 000001C4 _TEXT	Length= 00000128 Public STDCALL
+  getNext  . . . . . . . . . . .	L Near	 0000022D _TEXT	
+  calculateF . . . . . . . . . .	L Near	 00000259 _TEXT	
+  print  . . . . . . . . . . . .	L Near	 0000027C _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+Centigrade . . . . . . . . . . .	L Near	 00000084 _TEXT	
+ExitProcess@4  . . . . . . . . .	L Near	 00000000 FLAT	External STDCALL
+Fahrenheit . . . . . . . . . . .	L Near	 000001BA _TEXT	
+STD_INPUT_HANDLE . . . . . . . .	Number	 -0000000Ah   
+STD_OUTPUT_HANDLE  . . . . . . .	Number	 -0000000Bh   
+actNumber  . . . . . . . . . . .	Word	 00000125 _DATA	
+asciiBuf . . . . . . . . . . . .	Byte	 00000129 _DATA	
+bufferSize . . . . . . . . . . .	Number	 00000050h   
+buffer . . . . . . . . . . . . .	Byte	 00000004 _DATA	
+bytes_read . . . . . . . . . . .	DWord	 00000054 _DATA	
+bytes_written  . . . . . . . . .	DWord	 00000121 _DATA	
+celsius  . . . . . . . . . . . .	Byte	 00000058 _DATA	
+cont . . . . . . . . . . . . . .	L Near	 00000067 _TEXT	
+inDec  . . . . . . . . . . . . .	Byte	 000000F0 _DATA	
+inputHandle  . . . . . . . . . .	DWord	 00000000 _DATA	
+main . . . . . . . . . . . . . .	L Near	 00000000 _TEXT	Public STDCALL
+number . . . . . . . . . . . . .	Word	 00000127 _DATA	
+outputHandle . . . . . . . . . .	DWord	 0000011D _DATA	
+prompts  . . . . . . . . . . . .	Byte	 000000AF _DATA	
+sum_string . . . . . . . . . . .	Byte	 000000C3 _DATA	
+
+	   0 Warnings
+	   0 Errors
